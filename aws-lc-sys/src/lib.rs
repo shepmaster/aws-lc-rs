@@ -18,7 +18,7 @@ macro_rules! use_bindings {
 macro_rules! platform_binding {
     ($platform:ident) => {
         paste! {
-            #[cfg(all($platform, not(feature = "ssl"), not(use_bindgen_generated)))]
+            #[cfg(all($platform, not(feature = "ssl"), not(use_bindgen_generated), not(miri)))]
             use_bindings!([< $platform _crypto >]);
         }
     };
@@ -37,7 +37,7 @@ platform_binding!(x86_64_pc_windows_msvc);
 platform_binding!(x86_64_unknown_linux_gnu);
 platform_binding!(x86_64_unknown_linux_musl);
 
-#[cfg(use_bindgen_generated)]
+#[cfg(all(use_bindgen_generated, not(miri)))]
 #[allow(
     clippy::cast_lossless,
     clippy::cast_possible_truncation,
@@ -62,8 +62,15 @@ mod generated {
 
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
-#[cfg(use_bindgen_generated)]
+#[cfg(all(use_bindgen_generated, not(miri)))]
 pub use generated::*;
+
+// It doesn't matter which specific platform we pick for Miri as we
+// will never call into any of the functions.
+#[cfg(miri)]
+mod aarch64_apple_darwin_crypto;
+#[cfg(miri)]
+pub use aarch64_apple_darwin_crypto::*;
 
 #[allow(non_snake_case)]
 #[must_use]

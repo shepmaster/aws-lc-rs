@@ -341,6 +341,10 @@ fn current_dir() -> PathBuf {
     std::env::current_dir().unwrap()
 }
 
+fn inside_miri() -> bool {
+    env::var_os("CARGO_CFG_MIRI").is_some()
+}
+
 fn get_builder(prefix: &Option<String>, manifest_dir: &Path, out_dir: &Path) -> Box<dyn Builder> {
     let cmake_builder_builder = || {
         Box::new(CmakeBuilder::new(
@@ -359,6 +363,10 @@ fn get_builder(prefix: &Option<String>, manifest_dir: &Path, out_dir: &Path) -> 
             OutputLibType::default(),
         ))
     };
+
+    if inside_miri() {
+        return Box::new(DummyBuilder);
+    }
 
     if let Some(val) = env_var_to_bool("AWS_LC_SYS_CMAKE_BUILDER") {
         let builder: Box<dyn Builder> = if val {
@@ -387,6 +395,14 @@ trait Builder {
     fn check_dependencies(&self) -> Result<(), String>;
     fn build(&self) -> Result<(), String>;
     fn name(&self) -> &str;
+}
+
+struct DummyBuilder;
+
+impl Builder for DummyBuilder {
+    fn check_dependencies(&self) -> Result<(), String> { Ok(()) }
+    fn build(&self) -> Result<(), String> { Ok(()) }
+    fn name(&self) -> &str { "dummy" }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -459,6 +475,10 @@ fn initialize() {
                 PREGENERATED = true;
             }
         }
+    }
+
+    if inside_miri() {
+        unsafe { PREGENERATED = true };
     }
 }
 
